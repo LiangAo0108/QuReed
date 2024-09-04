@@ -137,6 +137,7 @@ class FileMenu(ft.UserControl):
             if not config_data.get("software") == "QuaSi":
                 return 
         pm = ProjectManager()
+        print(project_path)
         pm.open_project(project_path)
 
     def handle_open(self, e):

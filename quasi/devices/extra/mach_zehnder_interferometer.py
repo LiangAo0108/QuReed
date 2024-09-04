@@ -57,6 +57,10 @@ class MachZehnderInterferometer(GenericDevice):
     @log_action
     @schedule_next_event
     def des_action(self, time=None, *args, **kwargs):
+        """
+        It is a Mach Zehnder Interferometer
+
+        """
         env = kwargs["signals"]["input"].signal.contents
         signal = GenericQuantumSignal()
         signal.set_contents(content=env)

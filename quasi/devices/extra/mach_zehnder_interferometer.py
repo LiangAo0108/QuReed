@@ -2,6 +2,7 @@
 MZI
 """
 import traceback
+#from scipy.special import result
 from quasi.devices import (GenericDevice,
                            schedule_next_event,
                            log_action,
@@ -15,24 +16,11 @@ from quasi.gui.icons import icon_list
 from quasi.simulation import Simulation, SimulationType, ModeManager
 from quasi.extra.logging import Loggers, get_custom_logger
 from photon_weave.state.envelope import Envelope
-# import beam splitter nad phase shifter
-from quasi.devices.beam_splitters import IdealBeamSplitter
-from quasi.devices.phase_shifters import IdealPhaseShifter
+from photon_weave.operation.fock_operation import FockOperationType, FockOperation
+
+
 
 logger = get_custom_logger(Loggers.Devices)
-
-# inherit from ideal beam splitter and create apply function to use
-class MZI_BeamSplitter(IdealBeamSplitter):
-    def apply(self, signal_in0, signal_in1):
-        output0 = super().des(signal_in0)
-        output1 = super().des(signal_in1)
-        return output0, output1
-
-# inherit from ideal phase shifter and create apply function
-class MZI_PhaseShifter(IdealPhaseShifter):
-    def apply(self, singal_shift):
-        output_shift = super().des(singal_shift)
-        return output_shift
 
 class MachZehnderInterferometer(GenericDevice):
     """
@@ -86,8 +74,8 @@ class MachZehnderInterferometer(GenericDevice):
         self.phase_shift = 0
         self.qin0 = GenericQuantumSignal()
         self.qin1 = GenericQuantumSignal()
-        self.beam_splitter = MZI_BeamSplitter()
-        self.phase_shifter = MZI_PhaseShifter()
+
+
 
     @wait_input_compute
     def compute_outputs(self,  *args, **kwargs):
@@ -99,61 +87,65 @@ class MachZehnderInterferometer(GenericDevice):
     #@log_error
     @log_action
     @schedule_next_event
+
     def des(self, time=None, *args, **kwargs):
-        signals = kwargs.get("signals", {"qin0": GenericQuantumSignal(),
-            "qin1": GenericQuantumSignal(),
-            "phase_shift": GenericFloatSignal()})
-
-        #signal = kwargs.get("signals")
-
-        # check if input signal is existing
-        if "qin0" in signals:
-            self.qin0 = kwargs["signals"]["qin0"].contents
-        else:
-            logger.error("error: qin0 signal is missing or none")
-            self.qin0 = GenericQuantumSignal()
-        if isinstance(self.qin0, GenericQuantumSignal):
-            pass
-        else:
-            raise ValueError("qin0 is not a GenericQuantumSignal")
-
-
-        if "qin1" in signals:
-            self.qin1 = kwargs["signals"]["qin1"].contents
-        else:
-            logger.error("error: qin1 signal is missing or none")
-            self.qin1 = 0
-
-        # check if phase_shift signal is existing
-        if "phase_shift" in kwargs.get("signals"):
-            self.phase_shift = kwargs["signals"]["phase_shift"].contents
-        else:
-            logger.error("error: phase shift signal is missing or none")
-            #self.phase_shift = 0
-            raise ValueError("phase_shift signal is missing.")
-
-        # through the first beam splitter, the output named bs_output
-        bs_output0, bs_output1 = self.beam_splitter.apply(self.qin0, self.qin1)
-
-        # apply phase shifter on bs_output1
-        output_shift = self.phase_shifter.apply(bs_output1)
-
-        # through the second beam splitter
-        qout0,qout1 = self.beam_splitter.apply(self.qin0, output_shift)
-
-        # output signal
-        self.ports["qout0"].signal = GenericQuantumSignal(qout0)
-        output_signal_0 = GenericQuantumSignal(qout0)  # output the signal on port 0
-        output_signal_1 = GenericQuantumSignal(qout1)  # output the signal on port 1
-
         try:
-            result = [("qout0", output_signal_0, time), ("qout1", output_signal_1, time)]
-            return result
+            if "phase_shift" in kwargs.get("signals"):
+                self.phase_shift = kwargs["signals"]["phase_shift"].contents
 
-        # Write the functionality here
+            signals = kwargs.get("signals",{})
+            env_qin0 = signals.get("qin0", None)
+            env_qin1 = signals.get("qin1", None)
+
+            # if no input signal, create and initialize new envelope
+            if "qin0" in kwargs.get("signals") and "qin1" in kwargs.get("signals"):
+
+                # check if input signal is none. if no input then create new envelope
+                if env_qin0 is None:
+                    env_qin0 = NewEnvelope()  # create
+                else:
+                    env_qin0 = kwargs["signals"]["qin0"].contents
+
+                if env_qin1 is None:
+                    env_qin1 = NewEnvelope()
+                else:
+                    # env_qin1 = env_qin1.contents
+                    env_qin1 = kwargs["signals"]["qin0"].contents
+
+            # create operator for beam splitter and phase shifter
+            fo_beam_splitter = FockOperation(FockOperationType.BeamSplitter)
+            fo_phase_shifter = FockOperation(FockOperationType.PhaseShift, phi=self.phase_shift)
+
+            # apply the beam splitter
+            env_qin0.apply_operation(fo_beam_splitter)
+            env_qin1.apply_operation(fo_beam_splitter)
+
+            # apply the phase shifter
+            env_qin0.apply_operation(fo_phase_shifter)
+            env_qin1.apply_operation(fo_phase_shifter)
+
+            # create new quantum signals
+            signal_qout0 = GenericQuantumSignal()
+            signal_qout1 = GenericQuantumSignal()
+
+            # set the modified envelope to the content of output signal
+            signal_qout0.set_contents(env_qin0)
+            signal_qout1.set_contents(env_qin1)
+
+            # return to the result
+            result = [("qout0", signal_qout0, time),("qout1", signal_qout1, time)]
+            return result
 
         except Exception as e:
             logger.error("Error", exc_info=True)
+
+class NewEnvelope:
+    def __init__(self, initial_state=None):
+
+        if initial_state is None:
+            self.state = 0
+        else:
+            self.state = initial_state
 
 
 

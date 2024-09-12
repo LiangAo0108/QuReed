@@ -3,6 +3,9 @@ MZI
 """
 import traceback
 
+from photon_weave.operation.composite_operation import CompositeOperation, CompositeOperationType
+from photon_weave.state.composite_envelope import CompositeEnvelope
+
 #from scipy.special import result
 from quasi.devices import (GenericDevice,
                            schedule_next_event,
@@ -73,8 +76,6 @@ class MachZehnderInterferometer(GenericDevice):
     def __init__(self, name=None, uid=None): # initialize MZI including device name and unique identifier
         super().__init__(name=name, uid=uid)
         self.phase_shift = 0
-        self.qin0 = GenericQuantumSignal()
-        self.qin1 = GenericQuantumSignal()
 
     @wait_input_compute
     def compute_outputs(self,  *args, **kwargs):
@@ -86,7 +87,6 @@ class MachZehnderInterferometer(GenericDevice):
     #@log_error
     @log_action
     @schedule_next_event
-
     def des(self, time=None, *args, **kwargs):
         try:
             if "phase_shift" in kwargs.get("signals"):
@@ -94,51 +94,48 @@ class MachZehnderInterferometer(GenericDevice):
 
             signals = kwargs.get("signals",{})
 
-            #if "qin0" in signals and "qin1" in signals:
-                #env_qin0 = kwargs["signals"]["qin0"].contents
-                #env_qin1 = kwargs["signals"]["qin1"].contents
+            # get the envelopes
             qin0_signal = signals.get("qin0", None)
             qin1_signal = signals.get("qin1", None)
 
+            if qin0_signal is None or not hasattr(qin0_signal, 'contents'):
+                env0 = Envelope()
+            else:
+                env0 = qin0_signal.contents # 获取端口qin0的内容
 
-            if "qin0" in signals and "qin1" in signals:
-                # check if input signal is none. if no input then create new envelope
-                if qin0_signal is None:
-                    env_qin0 = NewEnvelope()  # create
-                else:
-                    env_qin0 = kwargs["signals"]["qin0"].contents
+            if qin1_signal is None:
+                env1 = Envelope()
+            else:
+                env1 = qin1_signal.contents
 
-                if qin1_signal is None:
-                    env_qin1 = NewEnvelope()
-                else:
-                    # env_qin1 = env_qin1.contents
-                    env_qin1 = kwargs["signals"]["qin0"].contents
+            print(f"qin0_signal: {qin0_signal}, qin1_signal: {qin1_signal}")
+            print(f"env0: {env0}, env1: {env1}")
+
+            ce = CompositeEnvelope(env0,env1)
 
             if (qin0_signal is None or qin0_signal.contents is None) and (qin1_signal is None or qin1_signal.contents is None):
                 print("MZI has no input")
+                logger.info("MZI no input here")
                 return
-
             # create operator for beam splitter and phase shifter
-            fo_beam_splitter = FockOperation(FockOperationType.BeamSplitter)
+            fo_beam_splitter = CompositeOperation(CompositeOperationType.NonPolarizingBeamSplit)
             fo_phase_shifter = FockOperation(FockOperationType.PhaseShift, phi=self.phase_shift)
-
             # apply the beam splitter
-            env_qin0.apply_operation(fo_beam_splitter)
-            env_qin1.apply_operation(fo_beam_splitter)
+            ce.apply_operation(fo_beam_splitter, env0.fock, env1.fock)
 
             # apply the phase shifter
-            env_qin0.apply_operation(fo_phase_shifter)
-            env_qin1.apply_operation(fo_phase_shifter)
+            ce.apply_operation(fo_phase_shifter,env1.fock)
+
+            # apply the beam splitter twice
+            ce.apply_operation(fo_beam_splitter, env0.fock, env1.fock)
 
             # create new quantum signals
             signal_qout0 = GenericQuantumSignal()
             signal_qout1 = GenericQuantumSignal()
 
             # set the modified envelope to the content of output signal
-            signal_qout0.set_contents(env_qin0)
-            signal_qout1.set_contents(env_qin1)
-
-
+            signal_qout0.set_contents(env0)
+            signal_qout1.set_contents(env1)
             # return to the result
             result = [("qout0", signal_qout0, time),("qout1", signal_qout1, time)]
             return result
@@ -146,13 +143,6 @@ class MachZehnderInterferometer(GenericDevice):
         except Exception as e:
             logger.error("Error", exc_info=True)
 
-class NewEnvelope:
-    def __init__(self, initial_state=None):
-
-        if initial_state is None:
-            self.state = 0
-        else:
-            self.state = initial_state
 
 
 

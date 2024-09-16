@@ -113,22 +113,27 @@ class MachZehnderInterferometer(GenericDevice):
             print(f"env0: {env0}, env1: {env1}")
 
 
+
             if (qin0_signal is None) and (qin1_signal is None):
                 print("MZI has no input")
                 logger.info("MZI no input here")
                 return
 
             ce = CompositeEnvelope(env0,env1)
+            ce.combine(env0.fock, env1.fock)
+            print (f"ce.states[0]:{ce.states[0]}")
 
             # create operator for beam splitter and phase shifter
             fo_beam_splitter = CompositeOperation(CompositeOperationType.NonPolarizingBeamSplit)
             fo_phase_shifter = FockOperation(FockOperationType.PhaseShift, phi=self.phase_shift)
             # apply the beam splitter
-            ce.apply_operation(fo_beam_splitter, env0.fock, env1.fock)
+            ce.apply_operation(fo_beam_splitter, env0, env1)
+            print(f"ce.states[0] after first beam splitter: {ce.states[0]}")
             # apply the phase shifter
-            ce.apply_operation(fo_phase_shifter,env1.fock)
+            ce.apply_operation(fo_phase_shifter,env1)
             # apply the beam splitter twice
-            ce.apply_operation(fo_beam_splitter, env0.fock, env1.fock)
+            ce.apply_operation(fo_beam_splitter, env0, env1)
+
 
             # create new quantum signals
             qout0_signal = GenericQuantumSignal()

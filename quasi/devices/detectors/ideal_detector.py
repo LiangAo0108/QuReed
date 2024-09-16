@@ -25,12 +25,12 @@ from quasi.simulation import ModeManager
 from quasi._math.fock.ops import adagger, a
 
 
-class IdealDetector(GenericDevice):
+class IdealDetector(GenericDevice): # 继承了genericdevice的类
     """
-    Implements Ideal Single Photon Source
+    Implements Ideal Single Photon Source 理想的单光子探测器
     """
 
-    ports = {
+    ports = { # 定义端口
         "input": Port(
             label="input",
             direction="input",
@@ -59,21 +59,21 @@ class IdealDetector(GenericDevice):
     reference = None
 
     @ensure_output_compute
-    @coordinate_gui
+    @coordinate_gui # 协调gui更新的装饰器
     @wait_input_compute
-    def compute_outputs(self, *args, **kwargs):
-        pass
+    def compute_outputs(self, *args, **kwargs): # 计算输出，但没有实现逻辑
+        pass # 仅通过装饰器标记功能
 
     @log_action
     @schedule_next_event
-    def des(self, time, *args, **kwargs):
-        env = kwargs["signals"]["input"].contents
-        ce = env.composite_envelope
-        print(ce.states[0][0])
-        outcome = ce.measure(env)
-        signal = GenericIntSignal()
+    def des(self, time, *args, **kwargs): # des方法，用于处理和模拟探测器的事件
+        env = kwargs["signals"]["input"].contents # 通过kwarg获取输入信号环境env
+        ce = env.composite_envelope # 获取复合信号的包络（一个复杂的量子信号的表示）
+        print(ce.states[0][0]) # 打印包络的第一个状态
+        outcome = ce.measure(env) # 测量输入信号env，结果存在outcome中
+        signal = GenericIntSignal() # 创建输出信号，一个整数的信号对象
         print(outcome)
-        signal.set_int(outcome[0])
+        signal.set_int(outcome[0]) # 将测量结果的第一个值设为整数信号
 
-        results = [("output", signal, time)]
+        results = [("output", signal, time)] # 返回结果，结果包括三项内容
         return results

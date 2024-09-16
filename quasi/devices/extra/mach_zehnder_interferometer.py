@@ -92,52 +92,53 @@ class MachZehnderInterferometer(GenericDevice):
             if "phase_shift" in kwargs.get("signals"):
                 self.phase_shift = kwargs["signals"]["phase_shift"].contents
 
-            signals = kwargs.get("signals",{})
+            signals = kwargs.get("signals", {})
 
             # get the envelopes
             qin0_signal = signals.get("qin0", None)
             qin1_signal = signals.get("qin1", None)
 
-            if qin0_signal is None or not hasattr(qin0_signal, 'contents'):
+            if qin0_signal is None:
                 env0 = Envelope()
             else:
-                env0 = qin0_signal.contents # 获取端口qin0的内容
+                env0 = signals["qin0"].contents
+
 
             if qin1_signal is None:
                 env1 = Envelope()
             else:
-                env1 = qin1_signal.contents
+                env1 = signals["qin1"].contents
 
             print(f"qin0_signal: {qin0_signal}, qin1_signal: {qin1_signal}")
             print(f"env0: {env0}, env1: {env1}")
 
-            ce = CompositeEnvelope(env0,env1)
 
-            if (qin0_signal is None or qin0_signal.contents is None) and (qin1_signal is None or qin1_signal.contents is None):
+            if (qin0_signal is None) and (qin1_signal is None):
                 print("MZI has no input")
                 logger.info("MZI no input here")
                 return
+
+            ce = CompositeEnvelope(env0,env1)
+
             # create operator for beam splitter and phase shifter
             fo_beam_splitter = CompositeOperation(CompositeOperationType.NonPolarizingBeamSplit)
             fo_phase_shifter = FockOperation(FockOperationType.PhaseShift, phi=self.phase_shift)
             # apply the beam splitter
             ce.apply_operation(fo_beam_splitter, env0.fock, env1.fock)
-
             # apply the phase shifter
             ce.apply_operation(fo_phase_shifter,env1.fock)
-
             # apply the beam splitter twice
             ce.apply_operation(fo_beam_splitter, env0.fock, env1.fock)
 
             # create new quantum signals
-            signal_qout0 = GenericQuantumSignal()
-            signal_qout1 = GenericQuantumSignal()
+            qout0_signal = GenericQuantumSignal()
+            qout1_signal = GenericQuantumSignal()
 
             # set the modified envelope to the content of output signal
-            signal_qout0.set_contents(env0)
-            signal_qout1.set_contents(env1)
+            qout0_signal.set_contents(env0)
+            qout1_signal.set_contents(env1)
             # return to the result
-            result = [("qout0", signal_qout0, time),("qout1", signal_qout1, time)]
+            result = [("qout0", qout0_signal, time),("qout1", qout1_signal, time)]
             return result
 
         except Exception as e:

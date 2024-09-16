@@ -4,3 +4,4 @@ from .pulse_sorter import PulseSorter
 from .encoder import Encoder
 from .messages import Messages
 from .optical_memory_decoder import OpticalMemoryDecoder
+from .mach_zehnder_interferometer import MachZehnderInterferometer

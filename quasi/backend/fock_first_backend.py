@@ -10,14 +10,14 @@ from quasi._math.fock import (a, adagger,
                               beamsplitter, phase)
 
 
-class FockBackendFirst(FockBackend):
+class FockBackendFirst(FockBackend): # 继承Fockbackend的一个类
     """
     First Fock Backend integration
     """
 
-    def __init__(self):
-        self.experiment = Experiment()
-        self.number_of_modes = 0
+    def __init__(self): # 用于实例化的函数
+        self.experiment = Experiment() # 创建实例
+        self.number_of_modes = 0 # 初始化
 
     def initialize(self):
         """

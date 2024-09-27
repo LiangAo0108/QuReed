@@ -2,7 +2,7 @@
 MZI
 """
 import traceback
-
+import numpy as np
 from photon_weave.operation.composite_operation import CompositeOperation, CompositeOperationType
 from photon_weave.state.composite_envelope import CompositeEnvelope
 
@@ -121,10 +121,13 @@ class MachZehnderInterferometer(GenericDevice):
 
             ce = CompositeEnvelope(env0,env1)
             ce.combine(env0.fock, env1.fock)
-            print (f"ce.states[0]:{ce.states[0]}")
+            #print (f"ce.states[0]:{ce.states[0]}")
+
+            beam_splitter_angle = kwargs.get("beam_splitter_angle", np.pi / 4)
+            print(f"Beam splitter angle: {beam_splitter_angle}")
 
             # create operator for beam splitter and phase shifter
-            fo_beam_splitter = CompositeOperation(CompositeOperationType.NonPolarizingBeamSplit)
+            fo_beam_splitter = CompositeOperation(CompositeOperationType.NonPolarizingBeamSplit, theta=beam_splitter_angle)
             fo_phase_shifter = FockOperation(FockOperationType.PhaseShift, phi=self.phase_shift)
             # apply the beam splitter
             ce.apply_operation(fo_beam_splitter, env0, env1)
